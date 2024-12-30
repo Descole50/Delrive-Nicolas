@@ -1,0 +1,93 @@
+def Spline(x, y):
+    """
+    Calcul de la spline cubique d'interpolation pour les points (x, y).
+    Entrées:
+        x : Liste des coordonnées x (doivent être ordonnées croissantes)
+        y : Liste des coordonnées y correspondantes
+    Sortie:
+        Une fonction spline cubique interpolant les points (x, y).
+    """
+    import numpy as np
+    
+    n = len(x)
+    h = np.diff(x)
+    alpha=[]
+    for i in range(1,n-1):
+        alpha.append(3 * ((y[i+1] - y[i]) / h[i] - (y[i] - y[i-1]) / h[i-1]))
+    
+    # Construction du système linéaire Ax = b pour trouver les mi (s'' aux points x_i)
+    A = np.zeros((n, n))
+    b = np.zeros(n)
+    
+    # Remplissage de la matrice A
+    A[0, 0] = 1  # Condition naturelle : m1 = 0
+    A[-1, -1] = 1  # Condition naturelle : mn = 0
+    for i in range(1, n-1):
+        A[i, i-1] = h[i-1]
+        A[i, i] = 2 * (h[i-1] + h[i])
+        A[i, i+1] = h[i]
+        b[i] = alpha[i-1]
+    
+    # Résolution du système
+    m = np.linalg.solve(A, b)
+    
+    # Calcul des coefficients a, b, c, d pour chaque intervalle
+    a=[]
+    b=[]
+    c=[]
+    d=[]
+    for i in range(n-1):
+        a.append((m[i+1] - m[i]) / (6 * h[i]))
+        b.append(m[i] / 2)
+        c.append((y[i+1] - y[i]) / h[i] - h[i] * (2 * m[i] + m[i+1]) / 6)
+        d.append(y[i])
+    
+    # Construction de la spline cubique par morceaux
+    def spline(x_val):
+        for i in range(n-1):
+            if x[i] <= x_val <= x[i+1]:
+                dx = x_val - x[i]
+                return a[i] * dx**3 + b[i] * dx**2 + c[i] * dx + d[i]
+        return None  # En dehors de l'intervalle
+    
+    return spline
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Points pour interpolation
+n = 15
+x = np.linspace(-4, 4, n)
+y_sin = np.sin(x)
+y_fraction = 1 / (1 + x**2)
+
+# Calcul des splines cubiques
+spline_sin = Spline(x, y_sin)
+spline_fraction = Spline(x, y_fraction)
+
+# Générer des points pour tracer les splines
+x_dense = np.linspace(-4, 4, 500)
+y_sin_spline = [spline_sin(x_val) for x_val in x_dense]
+y_fraction_spline = [spline_fraction(x_val) for x_val in x_dense]
+
+# Tracer les graphes
+plt.figure(figsize=(8, 12))
+
+# Graphe 1 : y = sin(x)
+plt.subplot(2, 1, 1)
+plt.plot(x_dense, y_sin_spline, color='black', label="Spline cubique (sin)")
+plt.plot(x, y_sin, 'o', color='red', label="Points d'interpolation (sin)")
+plt.legend()
+plt.title("Spline cubique pour y = sin(x)")
+plt.grid()
+
+# Graphe 2 : y = 1 / (1 + x^2)
+plt.subplot(2, 1, 2)
+plt.plot(x_dense, y_fraction_spline, color='black', label="Spline cubique (fraction)")
+plt.plot(x, y_fraction, 'o', color='red', label="Points d'interpolation (fraction)")
+plt.legend()
+plt.title("Spline cubique pour y = 1 / (1 + x^2)")
+plt.grid()
+
+plt.tight_layout()
+plt.show()
